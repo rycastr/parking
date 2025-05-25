@@ -3,8 +3,6 @@ use uuid::Uuid;
 
 use crate::domain::error::ModelError;
 
-use super::tariff_policy::TariffPolicy;
-
 pub struct ParkingSession {
     pub id: Uuid,
     pub plate: String,
@@ -31,20 +29,13 @@ impl ParkingSession {
         }
     }
 
-    pub fn close(
-        &mut self,
-        checkout_date: DateTime<Utc>,
-        tariff_policy: &TariffPolicy,
-    ) -> Result<(), ModelError> {
+    pub fn close(&mut self, checkout_date: DateTime<Utc>, price: i64) -> Result<(), ModelError> {
         if self.closed_at.is_some() {
             return Err(ModelError::SessionAlreadyClosed);
         }
         if self.started_at > checkout_date {
             return Err(ModelError::InvalidCheckoutDate);
         }
-
-        let parked_duration = checkout_date - self.started_at;
-        let price = tariff_policy.calculate(parked_duration);
 
         self.closed_at = Some(checkout_date);
         self.price = Some(price);
@@ -102,11 +93,10 @@ mod tests {
         };
 
         let checkout_date = DateTime::from_str("2025-01-01T12:59:00.000Z").unwrap();
-        parking_session
-            .close(checkout_date, &tariff_policy)
-            .unwrap();
+        let price = tariff_policy.calculate(parking_session.started_at, checkout_date);
+        parking_session.close(checkout_date, price).unwrap();
 
-        let result = parking_session.close(checkout_date, &tariff_policy);
+        let result = parking_session.close(checkout_date, price);
 
         assert_eq!(result, Err(ModelError::SessionAlreadyClosed))
     }
@@ -132,7 +122,8 @@ mod tests {
         };
 
         let checkout_date = DateTime::from_str("2025-01-01T11:59:00.000Z").unwrap();
-        let result = parking_session.close(checkout_date, &tariff_policy);
+        let price = tariff_policy.calculate(parking_session.started_at, checkout_date);
+        let result = parking_session.close(checkout_date, price);
 
         assert_eq!(result, Err(ModelError::InvalidCheckoutDate))
     }
@@ -158,9 +149,8 @@ mod tests {
         };
 
         let checkout_date = DateTime::from_str("2025-01-01T12:59:00.000Z").unwrap();
-        parking_session
-            .close(checkout_date, &tariff_policy)
-            .unwrap();
+        let price = tariff_policy.calculate(parking_session.started_at, checkout_date);
+        parking_session.close(checkout_date, price).unwrap();
 
         let expected_price: i64 = 500;
         assert_eq!(parking_session.price, Some(expected_price));
@@ -188,9 +178,8 @@ mod tests {
         };
 
         let checkout_date = DateTime::from_str("2025-01-01T12:15:00.000Z").unwrap();
-        parking_session
-            .close(checkout_date, &tariff_policy)
-            .unwrap();
+        let price = tariff_policy.calculate(parking_session.started_at, checkout_date);
+        parking_session.close(checkout_date, price).unwrap();
 
         let expected_price: i64 = 0;
         assert_eq!(parking_session.price, Some(expected_price));
@@ -217,9 +206,8 @@ mod tests {
         };
 
         let checkout_date = DateTime::from_str("2025-01-01T13:00:00.000Z").unwrap();
-        parking_session
-            .close(checkout_date, &tariff_policy)
-            .unwrap();
+        let price = tariff_policy.calculate(parking_session.started_at, checkout_date);
+        parking_session.close(checkout_date, price).unwrap();
 
         let expected_price: i64 = 700;
         assert_eq!(parking_session.price, Some(expected_price));

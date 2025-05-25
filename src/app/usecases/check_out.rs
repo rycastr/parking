@@ -40,7 +40,9 @@ impl CheckOut {
 
         let checkout_date = Utc::now();
 
-        parking_session.close(checkout_date, &tariff_policy)?;
+        let price = tariff_policy.calculate(parking_session.started_at, checkout_date);
+        
+        parking_session.close(checkout_date, price)?;
 
         self.parking_session_repository
             .update(&parking_session)
